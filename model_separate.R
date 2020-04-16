@@ -1,6 +1,17 @@
-
-##0403 only reg
-# simulated data
+###################################################################################
+#                Separate Model
+###################################################################################
+library(numDeriv)
+library('MASS')
+library(nnet)
+library(leaps)
+library(EvaluationMeasures)
+library(glmnet)
+library(BeSS)
+###################################################################################
+#                1 Simulate Data Set
+###################################################################################
+## Function
 fn_1_simulation<-function(par_seed,par_betanum,par_rele_num,par_r,par_samplesize){
   set.seed(par_seed)
   betanum <- par_betanum              ##total number of coefficient
@@ -77,32 +88,34 @@ fn_1_simulation<-function(par_seed,par_betanum,par_rele_num,par_r,par_samplesize
   return(dd)
 }
 
+## Generate
 data.sim<-fn_1_simulation(2020,50,10,0.6,2000) 
 data.vv <- data.sim[501:1000,]     ##validation data
 data.test <- data.sim[1001:2000,]  ##test data
-data.ori <- data.sim[1:500,]  ##train data
-####purely reg & logreg####
+data.ori <- data.sim[1:500,]       ##train data
+###################################################################################
+#                2 Build Model
+###################################################################################
+## Function
 fn_find_separate_lamda<-function(traindata,testdata,par_lamda_size,par_lamdamin,par_lamdamax) { 
   
+  #### Basic Setting 
   par_lamda <- runif(par_lamda_size, min = par_lamdamin, max =par_lamdamax)
   Lossfn_r <- matrix(0,nrow = par_lamda_size,ncol=1) 
   Lossfn_c <- matrix(0,nrow = par_lamda_size,ncol=1) 
   betar <- matrix(0,nrow = par_lamda_size,ncol=betanum+1) 
   betac <- matrix(0,nrow = par_lamda_size,ncol=betanum+1) 
-  ####set train & test data  
-  train_x <- as.matrix(traindata[,1:betanum]) 
-  train_yr <- as.matrix(traindata[,betanum+1])
-  train_yc <- as.matrix(traindata[,betanum+2])
+  train_x <- as.matrix(traindata[,1:betanum])   ##assign input data
+  train_yr <- as.matrix(traindata[,betanum+1])  ##assign output yr
+  train_yc <- as.matrix(traindata[,betanum+2])  ##assign output yc
   
   for (k in 1:par_lamda_size) {
-    ####ridge regression
-    reg_l2<-glmnet(train_x, train_yr, family = "gaussian", alpha = 1,lambda = par_lamda[k])
     
-    ####logistics regression with l2
-    logi_l2<-glmnet(train_x, train_yc, family = "binomial", alpha = 1,lambda = par_lamda[k])
+    #### Models
+    reg_l2<-glmnet(train_x, train_yr, family = "gaussian", alpha = 1,lambda = par_lamda[k])####lasso regression
+    logi_l2<-glmnet(train_x, train_yc, family = "binomial", alpha = 1,lambda = par_lamda[k])####logistics regression with l2
     
-    #Generate Loss: Lr,Lc,Pq for kth fold
-    #bring test data(x) into new modelthen get yhat  
+    #### Calculate Loss: Lr,Lc,Pq 
     x <- as.matrix(testdata[,1:betanum]) 
     y_r <- as.matrix(testdata[,betanum+1])
     y_c <- as.matrix(testdata[,betanum+2])
@@ -130,53 +143,51 @@ fn_find_separate_lamda<-function(traindata,testdata,par_lamda_size,par_lamdamin,
     
   }
   
+  #### Results: lamda and its beta (out_reg, out_logi)
   out_reg=cbind(par_lamda,Lossfn_r,betar)
   out_logi=cbind(par_lamda,Lossfn_c,betac)
-  
   assign("out_reg", out_reg, envir = .GlobalEnv)
   assign("out_logi", out_logi, envir = .GlobalEnv)
-  
 }
+
+## Generate
 result_index_only <- matrix(0,ncol = 9,nrow = 50)
-result_esti_beta_only<- matrix(0,ncol =betanum*2+2,nrow = 50)
-################################################
+result_esti_beta_only <- matrix(0,ncol =betanum*2+2,nrow = 50)
+
 
 for (s in 1:50) {
   
-  ####Find best tuning parameter#### ##L1/L2
+  #### Find best tuning parameter  L1/L2
   fn_find_separate_lamda(data.ori,data.vv,1000,0,5)
   
   best_lamda_r <- out_reg[which.min(out_reg[,2]),1] 
   best_lamda_c <- out_logi[which.min(out_logi[,2]),1] 
   
-  ####Estimate Coefficient#### 
+  #### Estimate Coefficients 
   traindata <- data.ori
-  train_x <- as.matrix(traindata[,1:betanum]) 
-  train_yr <- as.matrix(traindata[,betanum+1])
-  train_yc <- as.matrix(traindata[,betanum+2])
+  train_x <- as.matrix(traindata[,1:betanum])   ##assign input data
+  train_yr <- as.matrix(traindata[,betanum+1])  ##assign output yr
+  train_yc <- as.matrix(traindata[,betanum+2])  ##assign output yc
   
   onlyreg_l2<-glmnet(train_x, train_yr, family = "gaussian", alpha = 1,lambda = best_lamda_r)
   onlylogi_l2<-glmnet(train_x, train_yc, family = "binomial", alpha = 1,lambda = best_lamda_c)
   
-  #### Interest outcome ############################
-  count1 <- betanum+1
-  ##Estimation Error (true beta - estimated beta)
-  err_esti_r <- ((b0.r - coef(onlyreg_l2)[1])^2) + sum((B.r - coef(onlyreg_l2)[2:count1])^2) 
-  err_esti_c <- ((b0.c - coef(onlylogi_l2)[1])^2) + sum((B.c - coef(onlylogi_l2)[2:count1])^2) 
-  err_esti <- err_esti_r + err_esti_c 
-  
-  ##Prediction Error
+  ###################################################################################
+  #                3 Generate Results: Estimate Err & Prediction Err & FNR & FPR
+  ###################################################################################
+  #### Function
   predict_err <- function(testdata){
-   
+    
+    #### Basic setting
     testn <- dim(testdata)[1]
     X <- as.matrix(testdata[,1:betanum])
     
-    ####Linear regression####
+    #### Linear regression####
     b0.r_test <- coef(onlyreg_l2)[1]  
     B.r_test <- as.matrix(coef(onlyreg_l2)[-1])
     yr_hat<- b0.r_test + (X%*%B.r_test)
     
-    ####Logistics regression####
+    #### Logistics regression####
     b0.c_test<- coef(onlylogi_l2)[1]
     B.c_test <- as.matrix(coef(onlylogi_l2)[-1])
     pi_hat <- (exp(b0.c_test+X%*%B.c_test)/(1+exp(b0.c_test+X%*%B.c_test))) ##P(y=1|X=x)
@@ -185,25 +196,28 @@ for (s in 1:50) {
     err_predict_onlyr <- sum((testdata[,betanum+1]-yr_hat)^2)
     err_predict_onlyc <- mean(testdata[,betanum+2] != yc_hat)
     
+    ####Results: estimated y 
     data.est.sep <- cbind.data.frame(X,yr_hat,yc_hat)
     assign("err_predict_onlyr", err_predict_onlyr, envir = .GlobalEnv)
     assign("err_predict_onlyc", err_predict_onlyc, envir = .GlobalEnv)
-    
     assign("data.est.sep", data.est.sep, envir = .GlobalEnv)
-    
   }
+
+  #### Generate: Estimation Error (true beta - estimated beta)
+  count1 <- betanum+1
+  err_esti_r <- ((b0.r - coef(onlyreg_l2)[1])^2) + sum((B.r - coef(onlyreg_l2)[2:count1])^2) 
+  err_esti_c <- ((b0.c - coef(onlylogi_l2)[1])^2) + sum((B.c - coef(onlylogi_l2)[2:count1])^2) 
+  err_esti <- err_esti_r + err_esti_c 
+  #### Generate: Prediction Error
   predict_err(data.test)
-  
-  ##Variable Selection ##################################################################For reg Still need logi
+  #### Generate: Variable Selection
   var_selection_onlyr<- regsubsets(yr_hat ~ X1+X2+X3+X4+X5+X6+X7+X8+X9+X10+X11+X12+X13+X14+X15+X16+X17+X18+X19+X20
                                    +X21+X22+X23+X24+X25+X26+X27+X28+X29+X30+X31+X32+X33+X34+X35+X36+X37+X38+X39+X40
                                    +X41+X42+X43+X44+X45+X46+X47+X48+X49+X50 ,data = data.est.sep, nvmax = 10,really.big=T)
-  
   xx <- data.est.sep[,1:50]
   var_selection_onlyc<- bess.one(xx,data.est.sep$yc_hat ,s=10,family ="binomial")
   
   test_subset_r<-matrix((summary(var_selection_onlyr, matrix.logical = T))$which ,nrow=10,ncol=betanum+1)[10,-1]
-  
   test_subset_c<-matrix(FALSE, nrow=betanum,ncol = 1)
   test_subset_c[which(var_selection_onlyc$beta!=0),1]<-TRUE
   real_subset <- matrix(c(rep(TRUE,10),rep(FALSE,40)))
@@ -213,24 +227,22 @@ for (s in 1:50) {
   Rate_FNR_logi<-EvaluationMeasures.FNR(real_subset,test_subset_c)
   Rate_FPR_logi<-EvaluationMeasures.FPR(real_subset,test_subset_c)
   
-  ############## Output ############################
-  ##Result: Estimate Error, Prediction error, False Positive Rate(variable selection)
+  #### Results: 
   result_index_only[s,] <- cbind(err_esti,err_esti_r,err_esti_c,err_predict_onlyr,err_predict_onlyc,Rate_FNR_reg,Rate_FPR_reg,Rate_FNR_logi,Rate_FPR_logi)
   colnames(result_index_only) <- c("Total Estimate Error","Regression Estimate Error","Logistics Estimate Error",
                               "Regression Prediction Error","Logistic Prediction Error",
                               "Regression FNR","Regression FPR","Logistics FNR","Logistics FPR")
   
-
   a <- as.matrix(t(coef(onlyreg_l2)))
   b <- as.matrix(t(coef(onlylogi_l2)))
   result_esti_beta_only[s,] <- cbind(a,b)
   print(paste0("s: ", s))
   print(paste0("index: ", result_index_only[s,]))
-  
-  
 }
 
 
 ##############################################
 colSums(result_index_only)/50
 
+#result_esti_beta_only    #### Estimated beta
+#data.est.sep             #### X, yr_hat, yc_hat

@@ -1,4 +1,16 @@
 ###################################################################################
+#                Coefficent
+###################################################################################
+range0_r <- 1
+range0_c <- 2
+range_min <- 1 
+range_max <- 5
+assign("range_min", range_min, envir = .GlobalEnv)
+assign("range_max", range_max , envir = .GlobalEnv)
+assign("range0_r", range0_r, envir = .GlobalEnv)
+assign("range0_c", range0_c , envir = .GlobalEnv)
+
+###################################################################################
 #                1 Simulate Data Set R=0.6
 ###################################################################################
 ## Function
@@ -65,7 +77,8 @@ fn_1_simulation<-function(par_seed,par_betanum,par_rele_num,par_r,par_samplesize
     assign("ys.r", ys.r, envir = .GlobalEnv)  
     assign("ys.c", ys.c, envir = .GlobalEnv)
   }
-  fn_generate_y(1,1,5,2,1,5) #(par_b0.r, par_betarmin, par_betarmax,par_b0.c, par_betacmin, par_betacmax)
+  
+  fn_generate_y(range0_r,range_min,range_max,range0_c,range_min,range_max) #(par_b0.r, par_betarmin, par_betarmax,par_b0.c, par_betacmin, par_betacmax)
   
   #### DATA ####
   dd<-cbind.data.frame(X,ys.r,ys.c)
@@ -159,7 +172,7 @@ fn_1_simulation_ar1<-function(par_seed,par_betanum,par_rele_num,par_r,par_sample
     assign("ys.r", ys.r, envir = .GlobalEnv)  
     assign("ys.c", ys.c, envir = .GlobalEnv)
   }
-  fn_generate_y(1,1,5,2,1,5) #(par_b0.r, par_betarmin, par_betarmax,par_b0.c, par_betacmin, par_betacmax)
+  fn_generate_y(range0_r,range_min,range_max,range0_c,range_min,range_max) #(par_b0.r, par_betarmin, par_betarmax,par_b0.c, par_betacmin, par_betacmax)
   
   #### DATA ####
   dd<-cbind.data.frame(X,ys.r,ys.c)

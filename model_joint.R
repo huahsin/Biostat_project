@@ -69,7 +69,7 @@ find_Lbarrier <- function(theta) {
   c_beta <- theta[count3:count4]
   opti_uj<-matrix(0,nrow=betanum,ncol=1)
   
-  for (k in 1:betanum) {opti_uj[k]<-(max(abs(theta[k+1]),abs(theta[k+count2])))+0.5} ## For uj
+  for (k in 1:betanum) {opti_uj[k]<-(max(abs(theta[k+1]),abs(theta[k+count2])))+0.1} ## For uj
   uj <- opti_uj
   Lr <- t(y_r-(r_b0 + x%*%r_beta)) %*% (y_r-(r_b0 + x%*%r_beta))  
   
@@ -90,6 +90,10 @@ fn_3_optim<-function(traindata,setlamda, par_t, par_e, par_mu){
   
   #### Basic setting: randomly generate initial theta
   traindata<-as.matrix(traindata)
+  assign("lamda", setlamda, envir = .GlobalEnv)
+  assign("x", traindata[,1:betanum], envir = .GlobalEnv)
+  assign("y_r", traindata[,betanum+1] , envir = .GlobalEnv)
+  assign("y_c", traindata[,betanum+2] , envir = .GlobalEnv)
   thetanum <- betanum*3+2
   totalbetanum<-betanum*2+2
   assign("totalbetanum", totalbetanum, envir = .GlobalEnv)
@@ -97,12 +101,12 @@ fn_3_optim<-function(traindata,setlamda, par_t, par_e, par_mu){
   theta<-matrix(0,ncol = thetanum,nrow=1)
   opti_r_b0<-runif(1,min=0,max=3)   ##theta
   opti_c_b0<-runif(1,min=0,max=3)   ##theta
-  opti_r_beta<-as.matrix(runif(betanum,min=1,max=5),nrow=betanum,ncol=1)   ##theta
-  opti_c_beta<-as.matrix(runif(betanum,min=1,max=5),nrow=betanum,ncol=1)   ##theta
+  opti_r_beta<-as.matrix(runif(betanum,min=range_min,max=range_max),nrow=betanum,ncol=1)   ##theta
+  opti_c_beta<-as.matrix(runif(betanum,min=range_min,max=range_max),nrow=betanum,ncol=1)   ##theta
   opti_uj<-matrix(0,nrow=betanum,ncol=1) ##strictly feasible #betanum+1
   
   theta<-c(opti_r_b0,opti_r_beta,opti_c_b0,opti_c_beta)                                           
-  for (k in 1:betanum) {opti_uj[k]<-(max(abs(theta[k+1]),abs(theta[k+betanum+2])))+0.5}
+  for (k in 1:betanum) {opti_uj[k]<-(max(abs(theta[k+1]),abs(theta[k+betanum+2])))+0.1}
   
   #### Basic setting: optim parameter
   tt <- par_t
@@ -113,13 +117,10 @@ fn_3_optim<-function(traindata,setlamda, par_t, par_e, par_mu){
   repeat{ 
     ####################STEP 1 compute theta by Newton Method########################
     assign("tt", tt, envir = .GlobalEnv) ##"assign" means value tt can be use in function
-    assign("lamda", setlamda, envir = .GlobalEnv)
-    assign("x", traindata[,1:betanum], envir = .GlobalEnv)
-    assign("y_r", traindata[,betanum+1] , envir = .GlobalEnv)
-    assign("y_c", traindata[,betanum+2] , envir = .GlobalEnv)
-    
-    step1_opti<-optim(theta, find_Lbarrier, method = "CG",hessian = TRUE, control = list(type = 2))#,  control =list(maxit=1000), control = list(abstol=0.1,type=1)
-    #print(paste0("convergence: ", step1_opti$convergence))
+
+    step1_opti<-optim(theta, find_Lbarrier, method = "CG",hessian = FALSE, control =list(type=2))#, control = list(abstol=0.1,type=1)
+    print(paste0("convergence: ", step1_opti$convergence))
+    print(paste0("convergence: ", step1_opti$value))
     
     ####################STEP 2 update theta###########################################
     #print(paste0("old theta: ", theta))

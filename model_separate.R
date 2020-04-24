@@ -42,7 +42,7 @@ fn_find_separate_lamda<-function(traindata,testdata,par_lamda_size,par_lamdamin,
     penalty_c <- matrix(0,nrow = betanum, ncol=1)
     
     Lr <- t(y_r-(r_b0 + x%*%r_beta)) %*% (y_r-(r_b0 + x%*%r_beta))
-    Lc <- sum(-((y_c*(c_b0 + x%*%c_beta)) - log(1+exp(c_b0 + x%*%c_beta))))
+    Lc <- sum(-((c_b0 + x%*%c_beta) - log(1+exp(c_b0 + x%*%c_beta))))
     for (w in 1:betanum) {penalty_r[w] <- sqrt(r_beta[w]^2)} ###for regression
     for (w in 1:betanum) {penalty_c[w] <- sqrt(c_beta[w]^2)}
     Pg_r <- par_lamda[k]*(sum(penalty_r))

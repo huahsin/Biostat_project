@@ -40,7 +40,7 @@ fn_2_find_lamda<-function(traindata,testdata,par_lamda_size,par_lamdamin,par_lam
     penalty <- matrix(0,nrow = betanum, ncol=1)
     
     Lr <- t(y_r-(r_b0 + x%*%r_beta)) %*% (y_r-(r_b0 + x%*%r_beta))
-    Lc <- sum(-((y_c*(c_b0 + x%*%c_beta)) - log(1+exp(c_b0 + x%*%c_beta))))
+    Lc <- sum(-((c_b0 + x%*%c_beta) - log(1+exp(c_b0 + x%*%c_beta))))
     for (w in 1:betanum) {penalty[w] <- sqrt((r_beta[w]^2)+(c_beta[w]^2))}
     Pg <- par_lamda[k]*(sum(penalty))
     
@@ -82,7 +82,7 @@ find_Lbarrier <- function(theta) {
   }
   
   #### Calculate LBarrier 
-  Lc <- sum(-((y_c*(c_b0 + x%*%c_beta)) - logterm))
+  Lc <- sum(-((c_b0 + x%*%c_beta) - logterm))
   Pg <- (lamda*sum(uj)) + (-(sum(log(r_beta+uj)+log(uj-r_beta)))*(1/tt)) + (-(sum(log(c_beta+uj)+log(uj-c_beta)))*(1/tt))
   return (Lr + Lc + Pg)
 }
